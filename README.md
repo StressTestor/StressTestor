@@ -2,25 +2,27 @@ i build tools that break things and tools that fix things. security, AI agents, 
 
 ---
 
-**what i'm building**
+**active projects**
 
-- [pr-prism](https://github.com/StressTestor/pr-prism) — duplicate PR detection using local embeddings. runs on your machine, no cloud.
-- [linkdrift](https://linkdrift.app) — AI-curated link aggregator. x articles, auto-categorized, rss feeds.
-- [CapyIDE](https://github.com/StressTestor/CapyIDE-Mobile) — cross-platform mobile IDE. kotlin multiplatform + compose.
-- [Agora](https://github.com/StressTestor/Agora-ai-agent-visualizer) — model-agnostic AI debate viewer. spin up agents across any provider, watch them argue in real time.
+| | |
+|---|---|
+| [agora](https://github.com/StressTestor/Agora-ai-agent-visualizer) | desktop app for watching claude code multi-agent debates live. also runs debates between any combination of models |
+| [pr-prism](https://github.com/StressTestor/pr-prism) | duplicate PR detection with local embeddings. sqlite-vec + ollama |
+| [linkdrift](https://github.com/StressTestor/byli) | AI-curated link aggregator. live at [linkdrift.app](https://linkdrift.app) |
+| [CapyIDE Mobile](https://github.com/StressTestor/CapyIDE-Mobile) | cross-platform mobile IDE. Kotlin Multiplatform + Compose |
+
+**contributing to**
+
+- [Conway-Research/automaton](https://github.com/Conway-Research/automaton) — 6 open PRs (injection defense, command injection, spawn flow fixes)
+- [openhome-dev/abilities](https://github.com/openhome-dev/abilities) — 5 open PRs (system-monitor, hacker-news-reader voice abilities)
+- [OpenClaw](https://github.com/StressTestor/opencode) — 15+ plugins (security-audit, total-reclaw, context-pruner, cost-tracker)
 
 **how i work**
 
-all development is orchestrated through LLMs. claude code, custom agents, automated pipelines. the keyboard is for prompts.
-
-**stack**
-
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
-![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat&logo=kotlin&logoColor=white)
-![Rust](https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=next.js&logoColor=white)
+i orchestrate all development through LLMs. Claude Code, custom multi-agent teams, vibe coding. the keyboard is for prompts.
 
 ---
 
-[@NotBatmanDev](https://x.com/NotBatmanDev) · [linkdrift.app](https://linkdrift.app)
+`typescript` `python` `kotlin` `rust` `next.js` `tauri` `sqlite`
+
+[@NotBatmanDev](https://x.com/NotBatmanDev)
