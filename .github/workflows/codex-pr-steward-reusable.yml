@@ -1,0 +1,320 @@
+name: codex pr steward reusable
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        type: string
+        default: gpt-5.3-codex
+      effort:
+        type: string
+        default: high
+      merge_method:
+        type: string
+        default: squash
+      trusted_authors:
+        type: string
+        default: StressTestor,dependabot[bot],renovate[bot],github-actions[bot]
+      hold_labels:
+        type: string
+        default: hold,blocked,do-not-merge,wip
+      automerge_labels:
+        type: string
+        default: automerge,safe-to-automerge
+    secrets:
+      OPENAI_API_KEY:
+        required: false
+
+jobs:
+  review-and-merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      REVIEW_MARKER: "<!-- codex-pr-review -->"
+      VERDICT_RE: "<!--\\s*codex-review-verdict\\s*([\\s\\S]*?)\\s*-->"
+    steps:
+      - name: Check OpenAI API key
+        id: auth
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "${OPENAI_API_KEY}" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::add-mask::${OPENAI_API_KEY}"
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment when Codex is not configured
+        if: steps.auth.outputs.present != 'true'
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const marker = process.env.REVIEW_MARKER;
+            const pr = context.payload.pull_request;
+            if (!pr) return;
+            const body = `${marker}
+            ## codex review
+
+            Codex review is not configured for this repository yet.
+
+            Missing required secret: \`OPENAI_API_KEY\`.
+
+            <!-- codex-review-verdict
+            {"merge_safe":false,"max_severity":"critical","confidence":"high","reason":"OPENAI_API_KEY secret is missing"}
+            -->`;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              per_page: 100,
+            });
+            const previous = comments.find((comment) => comment.body?.includes(marker));
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: previous.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body,
+              });
+            }
+
+      - name: Stop without OpenAI key
+        if: steps.auth.outputs.present != 'true'
+        shell: bash
+        run: echo "Codex review skipped because OPENAI_API_KEY is missing."
+
+      - name: Check out pull request merge ref
+        if: steps.auth.outputs.present == 'true'
+        uses: actions/checkout@v5
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 0
+
+      - name: Fetch base and head refs
+        if: steps.auth.outputs.present == 'true'
+        shell: bash
+        run: |
+          git fetch --no-tags origin \
+            "${{ github.event.pull_request.base.ref }}" \
+            "+refs/pull/${{ github.event.pull_request.number }}/head"
+
+      - name: Run Codex review
+        if: steps.auth.outputs.present == 'true'
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: ${{ inputs.model }}
+          effort: ${{ inputs.effort }}
+          output-file: codex-output.md
+          safety-strategy: drop-sudo
+          sandbox: workspace-write
+          prompt: |
+            You are reviewing GitHub pull request #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+
+            Review the PR as a senior engineer. Focus on bugs, regressions, security issues, broken tests, unsafe automation, data loss, auth problems, and missing verification. Keep style nits out unless they hide a real bug.
+
+            Use the repository checkout and compare the PR against the base branch:
+            - base branch: ${{ github.event.pull_request.base.ref }}
+            - head branch: ${{ github.event.pull_request.head.ref }}
+            - PR title: ${{ github.event.pull_request.title }}
+
+            Useful commands:
+            - git diff --stat "origin/${{ github.event.pull_request.base.ref }}...HEAD"
+            - git diff "origin/${{ github.event.pull_request.base.ref }}...HEAD"
+            - run focused tests only when they are cheap and relevant
+
+            Do not edit files. Do not commit. Do not push.
+
+            Write the review in this shape:
+            1. Findings first, ordered by severity. Include file paths and line references when possible.
+            2. Test or verification notes.
+            3. A short merge recommendation.
+
+            At the very end, include exactly one machine-readable verdict comment:
+
+            <!-- codex-review-verdict
+            {"merge_safe":false,"max_severity":"none","confidence":"medium","reason":"one short reason"}
+            -->
+
+            Set merge_safe to true only when you found no blocking correctness, security, reliability, data-loss, or test issues. Use max_severity as one of: none, low, medium, high, critical. Any medium/high/critical issue should make merge_safe false.
+
+      - name: Parse Codex verdict
+        if: steps.auth.outputs.present == 'true'
+        id: verdict
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const outputPath = "codex-output.md";
+          const output = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, "utf8") : "";
+          const match = output.match(/<!--\s*codex-review-verdict\s*([\s\S]*?)\s*-->/);
+          let verdict = {
+            merge_safe: false,
+            max_severity: "critical",
+            confidence: "high",
+            reason: "Codex output did not include a parseable verdict",
+          };
+          if (match) {
+            try {
+              verdict = JSON.parse(match[1].trim());
+            } catch (error) {
+              verdict.reason = `Codex verdict JSON parse failed: ${error.message}`;
+            }
+          }
+          const severity = String(verdict.max_severity || "critical").toLowerCase();
+          const mergeSafe = verdict.merge_safe === true && !["medium", "high", "critical"].includes(severity);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge_safe=${mergeSafe ? "true" : "false"}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `max_severity=${severity}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `reason=${String(verdict.reason || "").replace(/\n/g, " ").slice(0, 500)}\n`);
+          NODE
+
+      - name: Post Codex review
+        if: steps.auth.outputs.present == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require("fs");
+            const marker = process.env.REVIEW_MARKER;
+            const raw = fs.existsSync("codex-output.md")
+              ? fs.readFileSync("codex-output.md", "utf8")
+              : "Codex did not write an output file.";
+            const body = `${marker}
+            ${raw}`;
+            const pr = context.payload.pull_request;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              per_page: 100,
+            });
+            const previous = comments.find((comment) => comment.body?.includes(marker));
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: previous.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body,
+              });
+            }
+
+      - name: Merge only after Codex and safety gates pass
+        if: steps.auth.outputs.present == 'true'
+        uses: actions/github-script@v7
+        env:
+          CODEX_MERGE_SAFE: ${{ steps.verdict.outputs.merge_safe }}
+          CODEX_MAX_SEVERITY: ${{ steps.verdict.outputs.max_severity }}
+          CODEX_REASON: ${{ steps.verdict.outputs.reason }}
+          TRUSTED_AUTHORS: ${{ inputs.trusted_authors }}
+          HOLD_LABELS: ${{ inputs.hold_labels }}
+          AUTOMERGE_LABELS: ${{ inputs.automerge_labels }}
+          MERGE_METHOD: ${{ inputs.merge_method }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const trustedAuthors = csv(process.env.TRUSTED_AUTHORS).map((v) => v.toLowerCase());
+            const holdLabels = new Set(csv(process.env.HOLD_LABELS).map((v) => v.toLowerCase()));
+            const automergeLabels = new Set(csv(process.env.AUTOMERGE_LABELS).map((v) => v.toLowerCase()));
+            const blockers = [];
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+
+            if (pr.mergeable === null) {
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
+            const { data: freshPr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+
+            const labels = new Set((freshPr.labels || []).map((label) => label.name.toLowerCase()));
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              per_page: 100,
+            });
+            const latestReviews = new Map();
+            for (const review of reviews) latestReviews.set(review.user.login, review.state);
+
+            const { data: checkRuns } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: freshPr.head.sha,
+              per_page: 100,
+            });
+            const { data: combinedStatus } = await github.rest.repos.getCombinedStatusForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: freshPr.head.sha,
+            });
+            const runs = (checkRuns.check_runs || []).filter((run) => !/codex pr steward/i.test(run.name));
+            const statuses = combinedStatus.statuses || [];
+            const badRuns = runs.filter((run) => run.status !== "completed" || !["success", "neutral", "skipped"].includes(run.conclusion));
+            const badStatuses = statuses.filter((status) => status.state !== "success");
+            const anyChecks = runs.length > 0 || statuses.length > 0;
+
+            const trustedAuthor = trustedAuthors.includes(freshPr.user.login.toLowerCase());
+            const hasAutomergeLabel = [...labels].some((label) => automergeLabels.has(label));
+            const hasHoldLabel = [...labels].some((label) => holdLabels.has(label));
+            const changesRequested = [...latestReviews.values()].some((state) => state === "CHANGES_REQUESTED");
+
+            if (process.env.CODEX_MERGE_SAFE !== "true") {
+              blockers.push(`Codex did not approve merge: ${process.env.CODEX_REASON || "no reason provided"}`);
+            }
+            if (freshPr.draft) blockers.push("PR is still a draft");
+            if (hasHoldLabel) blockers.push("hold label is present");
+            if (freshPr.mergeable !== true || !["clean", "unstable", "has_hooks"].includes(freshPr.mergeable_state)) {
+              blockers.push(`mergeable state is ${freshPr.mergeable_state || "unknown"}`);
+            }
+            if (changesRequested) blockers.push("a reviewer requested changes");
+            if (!anyChecks) blockers.push("no status checks or check runs were found");
+            if (badRuns.length > 0 || badStatuses.length > 0 || ["failure", "pending"].includes(combinedStatus.state)) {
+              blockers.push("one or more status checks failed, are pending, or were cancelled");
+            }
+            if (!trustedAuthor && !hasAutomergeLabel) {
+              blockers.push("author is not trusted and no automerge label is present");
+            }
+
+            if (blockers.length > 0) {
+              core.info(`Not merging PR #${prNumber}: ${blockers.join("; ")}`);
+              return;
+            }
+
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              merge_method: process.env.MERGE_METHOD || "squash",
+              commit_title: `${freshPr.title} (#${freshPr.number})`,
+              sha: freshPr.head.sha,
+            });
+
+            function csv(value) {
+              return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+            }
