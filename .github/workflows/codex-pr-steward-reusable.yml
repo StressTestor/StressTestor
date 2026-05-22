@@ -22,7 +22,7 @@ on:
         type: string
         default: automerge,safe-to-automerge
     secrets:
-      OPENAI_API_KEY:
+      CODEX_ACCESS_TOKEN:
         required: false
 
 jobs:
@@ -33,16 +33,16 @@ jobs:
       REVIEW_MARKER: "<!-- codex-pr-review -->"
       VERDICT_RE: "<!--\\s*codex-review-verdict\\s*([\\s\\S]*?)\\s*-->"
     steps:
-      - name: Check OpenAI API key
+      - name: Check Codex access token
         id: auth
         shell: bash
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CODEX_ACCESS_TOKEN: ${{ secrets.CODEX_ACCESS_TOKEN }}
         run: |
-          if [ -z "${OPENAI_API_KEY}" ]; then
+          if [ -z "${CODEX_ACCESS_TOKEN}" ]; then
             echo "present=false" >> "$GITHUB_OUTPUT"
           else
-            echo "::add-mask::${OPENAI_API_KEY}"
+            echo "::add-mask::${CODEX_ACCESS_TOKEN}"
             echo "present=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -61,10 +61,10 @@ jobs:
 
             Codex review is not configured for this repository yet.
 
-            Missing required secret: \`OPENAI_API_KEY\`.
+            Missing required secret: \`CODEX_ACCESS_TOKEN\`.
 
             <!-- codex-review-verdict
-            {"merge_safe":false,"max_severity":"critical","confidence":"high","reason":"OPENAI_API_KEY secret is missing"}
+            {"merge_safe":false,"max_severity":"critical","confidence":"high","reason":"CODEX_ACCESS_TOKEN secret is missing"}
             -->`;
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
@@ -89,10 +89,10 @@ jobs:
               });
             }
 
-      - name: Stop without OpenAI key
+      - name: Stop without Codex access token
         if: steps.auth.outputs.present != 'true'
         shell: bash
-        run: echo "Codex review skipped because OPENAI_API_KEY is missing."
+        run: echo "Codex review skipped because CODEX_ACCESS_TOKEN is missing."
 
       - name: Check out pull request merge ref
         if: steps.auth.outputs.present == 'true'
@@ -113,8 +113,9 @@ jobs:
         if: steps.auth.outputs.present == 'true'
         id: run_codex
         uses: openai/codex-action@v1
+        env:
+          CODEX_ACCESS_TOKEN: ${{ secrets.CODEX_ACCESS_TOKEN }}
         with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           model: ${{ inputs.model }}
           effort: ${{ inputs.effort }}
           output-file: codex-output.md
