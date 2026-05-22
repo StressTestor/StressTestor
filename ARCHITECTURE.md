@@ -14,7 +14,7 @@ This is the `StressTestor` profile repository. It stores profile README content 
 | workflow runtime | GitHub Actions Ubuntu runner |
 | merge gate script | `actions/github-script@v7` + GitHub REST API |
 | checkout | `actions/checkout@v5` |
-| required secret | `OPENAI_API_KEY` in each target repo |
+| required secret | `CODEX_ACCESS_TOKEN` in each target repo or organization |
 
 ## directory structure
 
@@ -27,7 +27,7 @@ This is the `StressTestor` profile repository. It stores profile README content 
 │   └── workflows/
 │       ├── codex-pr-steward-reusable.yml
 │       ├── codex-pr-steward.yml
-│       └── pr-steward.yml       # legacy deterministic workflow retained for reference
+│       └── pr-steward.yml       # caller workflow for this repo
 ├── ARCHITECTURE.md
 └── README.md
 ```
@@ -37,6 +37,8 @@ This is the `StressTestor` profile repository. It stores profile README content 
 Target repositories run a small `.github/workflows/pr-steward.yml` caller that invokes the reusable workflow in this repo.
 
 The reusable workflow checks out the PR merge ref, runs Codex with `openai/codex-action@v1`, posts or updates one PR comment marked with `<!-- codex-pr-review -->`, and asks Codex to include a machine-readable verdict marked with `<!-- codex-review-verdict ... -->`.
+
+Codex authenticates with a ChatGPT/Codex access token passed as `CODEX_ACCESS_TOKEN`. The workflow no longer passes an OpenAI Platform API key.
 
 Auto-merge requires both the AI verdict and deterministic gates:
 
@@ -58,7 +60,7 @@ None.
 
 | variable | default | purpose |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | repo secret | authenticates `openai/codex-action` |
+| `CODEX_ACCESS_TOKEN` | repo or organization secret | ChatGPT-backed Codex access token used by `codex exec` |
 | `REVIEW_MARKER` | `<!-- codex-pr-review -->` | marker for the upserted review comment |
 | `model` input | `gpt-5.3-codex` | Codex model used for reviews |
 | `effort` input | `high` | Codex reasoning effort |
@@ -71,7 +73,7 @@ None.
 
 The reusable workflow lives at `.github/workflows/codex-pr-steward-reusable.yml` in this repo. Target repos call it from their `.github/workflows/pr-steward.yml` files.
 
-Each target repo needs an `OPENAI_API_KEY` Actions secret before Codex review can run. Without the secret, the workflow posts a configuration comment and refuses to merge.
+Each target repo needs access to a `CODEX_ACCESS_TOKEN` Actions secret before Codex review can run. Without the secret, the workflow posts a configuration comment and refuses to merge.
 
 ## external services and integrations
 
@@ -80,11 +82,11 @@ Each target repo needs an `OPENAI_API_KEY` Actions secret before Codex review ca
 | GitHub Actions | PR event execution |
 | GitHub REST API | PR comments, check inspection, review inspection, merge |
 | OpenAI Codex Action | AI code review through Codex |
-| OpenAI API | model backend for `gpt-5.3-codex` |
+| Codex access token | ChatGPT-plan authentication for `codex exec` |
 
 ## gotchas
 
-This does not use a local cached Codex/ChatGPT login. GitHub Actions needs a repo secret, normally `OPENAI_API_KEY`. OpenAI's Codex docs recommend API-key authentication for programmatic CI/CD workflows.
+Do not commit or print local Codex auth cache files. Generate a Codex access token and store it as `CODEX_ACCESS_TOKEN` in GitHub Actions secrets.
 
 Branch protection can still block a merge, which is intentional.
 
