@@ -1,0 +1,20 @@
+name: codex pr steward
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize, edited, labeled, unlabeled]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: read
+  statuses: read
+
+jobs:
+  codex-pr-steward:
+    uses: StressTestor/StressTestor/.github/workflows/codex-pr-steward-reusable.yml@main
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
