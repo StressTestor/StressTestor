@@ -1,8 +1,27 @@
-i build tools that break things and tools that fix things. security, AI agents, developer tools.
+<div align="center">
 
----
+[![a black hole event horizon, gravitationally lensed accretion disk around it](assets/banner.png)](https://github.com/StressTestor/starforge)
 
-**agent security**
+<sub>rendered from scratch by [starforge](https://github.com/StressTestor/starforge). python + numpy, no ml, just math.</sub>
+
+<br>
+<br>
+
+i build tools that break things and tools that fix things.
+<br>
+security, AI agents, developer tools.
+
+<samp>
+
+[x](https://x.com/ThatbV) · [linkdrift](https://linkdrift.app) · [crates.io](https://crates.io/crates/sentinel-guard) · [npm](https://www.npmjs.com/package/prism-triage)
+
+</samp>
+
+</div>
+
+### agent security
+
+CLI agents have shell access, file access, and no runtime defense layer. these three are my fix.
 
 | | |
 |---|---|
@@ -10,30 +29,47 @@ i build tools that break things and tools that fix things. security, AI agents, 
 | [ghost](https://github.com/StressTestor/ghost) | chaos + visibility layer on top of sentinel. see what your agent actually does when things go wrong |
 | [seance](https://github.com/StressTestor/seance) | read-only desktop observer for sentinel/ghost sessions. tauri |
 
-**developer tools**
+```
+claude code decides to run: cat ~/.aws/credentials
+     │
+     sentinel intercepts the tool call
+     │
+     policy says: ~/.aws/* → BLOCK
+     │
+     tool call denied. that read never happens.
+```
+
+### developer tools
 
 | | |
 |---|---|
 | [pr-prism](https://github.com/StressTestor/pr-prism) | triage for repos drowning in PRs. duplicate detection with local embeddings, quality ranking. `npm i -g prism-triage` |
 | [agora](https://github.com/StressTestor/Agora-ai-agent-visualizer) | desktop app for watching claude code multi-agent debates live |
 | [galaxy-graph](https://github.com/StressTestor/galaxy-graph) | fly through your obsidian vault as a 3d galaxy |
-| [starforge](https://github.com/StressTestor/starforge) | deterministic black-hole art. gravitational lensing in python/numpy |
+| [starforge](https://github.com/StressTestor/starforge) | deterministic black-hole art. gravitational lensing in python/numpy. see banner |
 
-**oss**
+### oss
 
 27 merged PRs in other people's repos, mostly bugfixes in static analysis and security tooling: [pylint](https://github.com/pylint-dev/pylint), [gosec](https://github.com/securego/gosec), [flake8-bugbear](https://github.com/PyCQA/flake8-bugbear), [mvdan/sh](https://github.com/mvdan/sh), [pyscn](https://github.com/ludo-technologies/pyscn), [lizard](https://github.com/terryyin/lizard), [pydoclint](https://github.com/jsh9/pydoclint), [git-branchless](https://github.com/arxanas/git-branchless), [deepeval](https://github.com/confident-ai/deepeval), [OpenHands SDK](https://github.com/OpenHands/software-agent-sdk). security triage on [odysseus](https://github.com/odysseus-dev/odysseus).
 
-**bug bounty**
+### bug bounty
 
 active on hackerone. every report ships with a working PoC or it doesn't ship.
 
-**apps**
+### apps
 
 [linkdrift](https://linkdrift.app) (AI-curated link aggregator, live) · [calibratediq](https://github.com/StressTestor/calibratediq) (free IQ test) · [CapyIDE Mobile](https://github.com/StressTestor/CapyIDE-Mobile) (KMP mobile IDE)
 
+### how i work
+
+i orchestrate all development through LLMs. claude code, custom multi-agent workflows, adversarial review gates. the keyboard is for prompts.
 
 ---
+
+<div align="center">
 
 `rust` `go` `typescript` `python` `kotlin` `tauri` `next.js` `sqlite`
 
 [@ThatbV](https://x.com/ThatbV)
+
+</div>
