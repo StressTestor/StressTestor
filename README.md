@@ -40,3 +40,4 @@ i orchestrate all development through LLMs. claude code, custom multi-agent work
 `rust` `go` `typescript` `python` `kotlin` `tauri` `next.js` `sqlite`
 
 [@ThatbV](https://x.com/ThatbV)
+
