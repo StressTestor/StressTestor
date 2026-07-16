@@ -60,10 +60,6 @@ active on hackerone. every report ships with a working PoC or it doesn't ship.
 
 [linkdrift](https://linkdrift.app) (AI-curated link aggregator, live) · [calibratediq](https://github.com/StressTestor/calibratediq) (free IQ test) · [CapyIDE Mobile](https://github.com/StressTestor/CapyIDE-Mobile) (KMP mobile IDE)
 
-### how i work
-
-i orchestrate all development through LLMs. claude code, custom multi-agent workflows, adversarial review gates. the keyboard is for prompts.
-
 ---
 
 <div align="center">
