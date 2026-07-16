@@ -66,6 +66,6 @@ active on hackerone. every report ships with a working PoC or it doesn't ship.
 
 `rust` `go` `typescript` `python` `kotlin` `tauri` `next.js` `sqlite`
 
-[@ThatbV](https://x.com/ThatbV)
+[@onespookyboi](https://x.com/onespookyboi)
 
 </div>
